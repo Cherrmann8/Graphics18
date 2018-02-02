@@ -1,2 +1,2 @@
 # Graphics18
-![alt text](screenshots/Triangle1.png "First Triangle")
+![alt text](/home/charles/Pictures/triangle_1.png "First Triangle")
