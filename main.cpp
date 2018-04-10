@@ -8,6 +8,7 @@
 ******************************************************************************/
 
 #include "Object.h"
+#include "classes/camera.h"
 
 /******************************************************************************
 
@@ -19,30 +20,12 @@ const char *vertexShaderSource = "#version 150\n"
         "in vec4 vPosition;\n"
         "in vec4 vColor;\n"
         "out vec4 color;\n"
-        //"uniform vec4 vColor = vec4(0.0, 1.0, 1.0, 1.0);\n"
         "uniform vec3 theta;\n"
+        "uniform mat4 MVP;"
         "void main()\n"
         "{\n"
-        "   //Compute the sines and cosines of theta for each of\n"
-        "   //the three axes in one computation.\n"
-        "   vec3 angles = radians(theta);\n"
-        "   vec3 c = cos(angles);\n"
-        "   vec3 s = sin(angles);\n"
-        "   //Remember: these matrices are column major.\n"
-        "   mat4 rx = mat4(1.0, 0.0, 0.0, 0.0,\n"
-        "                  0.0, c.x, s.x, 0.0,\n"
-        "                  0.0, -s.x, c.x, 0.0,\n"
-        "                  0.0, 0.0, 0.0, 1.0);\n"
-        "   mat4 ry = mat4(c.y, 0.0, -s.y, 0.0,\n"
-        "                  0.0, 1.0, 0.0, 0.0,\n"
-        "                  s.y, 0.0, c.y, 0.0,\n"
-        "                  0.0, 0.0, 0.0, 1.0);\n"
-        "   mat4 rz = mat4(c.z, -s.z, 0.0, 0.0,\n"
-        "                  s.z, c.z, 0.0, 0.0,\n"
-        "                  0.0, 0.0, 1.0, 0.0,\n"
-        "                  0.0, 0.0, 0.0, 1.0);\n"
         "   color = vColor;\n"
-        "   gl_Position = rx * ry * rz * vPosition;\n"
+        "   gl_Position = MVP * vPosition;\n"
         "}\0";
 
 const char *fragmentShaderSource = "#version 150\n"
@@ -65,19 +48,22 @@ int Axis = Xaxis;
 
 const int NUM_MODELS = 2;
 
-GLfloat Theta[NumAxes] = { 0.0, 0.0, 0.0 };
 // You will want to change these .obj files to the ones you are using
 Object objects[NUM_MODELS] = {std::string("/home/charles/CLionProjects/Glitter/Sources/cube.obj"),
-                              std::string("/home/charles/CLionProjects/Glitter/Sources/monkey.obj")};
+                              std::string("/home/charles/CLionProjects/Glitter/Sources/museum.obj")};
 GLuint vao[NUM_MODELS];
 int modelSelection = 0;
 bool Lpressed = false;
 bool Upressed = false;
 bool Dpressed = false;
 bool Rpressed = false;
+bool Ipressed = false;
+bool Opressed = false;
 
-// the location of the "theta" shader uniform variable
-GLint theta;
+Camera camera;
+
+// MVP matrix
+GLint MVP_Matrix;
 
 // set up our window size
 const unsigned int SCR_WIDTH = 800;
@@ -147,10 +133,10 @@ void init() {
     }
 
     glBindVertexArray(vao[0]);
-    theta = glGetUniformLocation(program, "theta");
+    MVP_Matrix = glGetUniformLocation(program, "MVP");
 
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0, 0.0, 0.0,1.0);
+    glClearColor(0.0, 0.0,0.0, 1.0);
 
 } // end init()
 
@@ -161,7 +147,8 @@ void init() {
 *******************************************************************************/
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUniform3fv(theta, 1, Theta);
+    //glUniform3fv(theta, 1, Theta);
+    glUniformMatrix4fv(MVP_Matrix, 1, GL_FALSE, &camera.GetViewMatrix()[0][0]);
 
     // draw the currently loaded model
     objects[modelSelection].draw();
@@ -180,29 +167,41 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         modelSelection = (modelSelection + 1) % NUM_MODELS;
         glBindVertexArray(vao[modelSelection]);
     }
-    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_A && action == GLFW_PRESS) {
         Lpressed = true;
     }
-    if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE) {
+    if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
         Lpressed = false;
     }
-    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_D && action == GLFW_PRESS) {
         Rpressed = true;
     }
-    if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
+    if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
         Rpressed = false;
     }
-    if (key == GLFW_KEY_UP && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_W && action == GLFW_PRESS) {
         Upressed = true;
     }
-    if (key == GLFW_KEY_UP && action == GLFW_RELEASE) {
+    if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
         Upressed = false;
     }
-    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) {
         Dpressed = true;
     }
-    if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE) {
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
         Dpressed = false;
+    }
+    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS) {
+        Ipressed = true;
+    }
+    if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE) {
+        Ipressed = false;
+    }
+    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
+        Opressed = true;
+    }
+    if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE) {
+        Opressed = false;
     }
 } // end key_callback()
 
@@ -213,37 +212,32 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 ******************************************************************************/
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
+    std::cout << "button: " << button << "mod: " << mods << std::endl;
 } // end mouse_button_callback()
 
 /******************************************************************************
 
-	AXIS ROTATION
+	CAMERA UPDATES
 
 ******************************************************************************/
 void idle() {
     if(Lpressed) {
-        Theta[Yaxis] += 1.0; // might try using 0.01 intervals
-        if (Theta[Axis] > 360.0) {
-            Theta[Axis] -= 360.0;
-        }
+        camera.ProcessKeyboard(LEFT, 0.005f);
     }
     if(Rpressed) {
-        Theta[Yaxis] -= 1.0; // might try using 0.01 intervals
-        if (Theta[Axis] <= 0.0) {
-            Theta[Axis] += 360.0;
-        }
+        camera.ProcessKeyboard(RIGHT, 0.005f);
     }
     if(Upressed) {
-        Theta[Xaxis] += 1.0; // might try using 0.01 intervals
-        if (Theta[Axis] > 360.0) {
-            Theta[Axis] -= 360.0;
-        }
+        camera.ProcessKeyboard(FORWARD, 0.005f);
     }
     if(Dpressed) {
-        Theta[Xaxis] -= 1.0; // might try using 0.01 intervals
-        if (Theta[Axis] <= 0.0) {
-            Theta[Axis] += 360.0;
-        }
+        camera.ProcessKeyboard(BACKWARD, 0.005f);
+    }
+    if(Ipressed) {
+        camera.ProcessMouseMovement(5.0f, 0.000f);
+    }
+    if(Opressed) {
+        camera.ProcessMouseMovement(-5.0f, 0.000f);
     }
 } // end idle()
 
